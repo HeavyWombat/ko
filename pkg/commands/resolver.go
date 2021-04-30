@@ -95,6 +95,11 @@ func gobuildOptions(bo *options.BuildOptions) ([]build.Option, error) {
 		}
 		opts = append(opts, build.WithLabel(parts[0], parts[1]))
 	}
+
+	if len(buildCfgOverrides) > 0 {
+		opts = append(opts, build.WithConfig(buildCfgOverrides))
+	}
+
 	return opts, nil
 }
 

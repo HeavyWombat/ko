@@ -17,9 +17,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	gb "go/build"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -37,6 +39,7 @@ import (
 var (
 	defaultBaseImage   name.Reference
 	baseImageOverrides map[string]name.Reference
+	buildCfgOverrides  map[string]build.Config
 )
 
 func getBaseImage(platform string) build.GetBase {
@@ -159,5 +162,33 @@ func init() {
 			log.Fatalf("'baseImageOverrides': error parsing %q as image reference: %v", v, err)
 		}
 		baseImageOverrides[k] = bi
+	}
+
+	var builds []build.Config
+	if err := viper.UnmarshalKey("builds", &builds); err != nil {
+		log.Fatalf("configuration section 'builds' cannot be parsed")
+	}
+
+	buildCfgOverrides = make(map[string]build.Config)
+	for _, build := range builds {
+		path := build.Dir
+		if len(path) == 0 {
+			path = "./"
+		}
+
+		if len(build.Main) > 0 {
+			if mainDir := filepath.Dir(build.Main); mainDir != "." {
+				path = path + string(filepath.Separator) + mainDir
+			}
+		}
+
+		if gb.IsLocalImport(path) {
+			path, err = qualifyLocalImport(path)
+			if err != nil {
+				log.Fatalf("failed to create qualified import path using path %s", path)
+			}
+		}
+
+		buildCfgOverrides[path] = build
 	}
 }
